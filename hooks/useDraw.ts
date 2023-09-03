@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-export const useDraw = () => {
+export const useDraw = (drawLine: (draw: Draw) => void) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastX = useRef(0);
   const lastY = useRef(0);
 
+  // Clear the canvas
   const clear = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -16,70 +17,56 @@ export const useDraw = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
+  // Attach event handlers to canvas
   useEffect(() => {
     const currCanvas = canvasRef.current;
-    const ctx = currCanvas?.getContext("2d");
+    if (!currCanvas) return;
 
-    const mouseUpHandler = () => {
-      isDrawing.current = false;
-    };
+    const ctx = currCanvas.getContext("2d");
+    if (!ctx) return;
 
-    const mouseOutHandler = () => {
+    const mouseUpOutHandler = () => {
       isDrawing.current = false;
     };
 
     const mouseDownHandler = (e: MouseEvent) => {
       isDrawing.current = true;
+
       // Update line start when mouseDown
       [lastX.current, lastY.current] = [e.offsetX, e.offsetY];
     };
 
-    if (ctx) {
-      ctx.lineJoin = "round"; // round where lines meet
-      ctx.lineCap = "round"; // round where lines end
-      ctx.strokeStyle = "#000"; // line color
-      ctx.lineWidth = 10; // line width
-    }
-
     const handleDraw = (e: MouseEvent) => {
-      // console.log("mousedown");
-
       if (!isDrawing.current || !ctx) return;
 
-      // Initiate line drawing
-      ctx.beginPath();
-
-      // Starting point off line
-      ctx.moveTo(lastX.current, lastY.current);
-
-      // Ending point off line
-      ctx.lineTo(e.offsetX, e.offsetY);
-
-      // Draw the line on canvas
-      ctx.stroke();
+      drawLine({
+        ctx: ctx,
+        prev: { x: lastX.current, y: lastY.current },
+        curr: { x: e.offsetX, y: e.offsetY },
+      });
 
       // Update starting point of line
       [lastX.current, lastY.current] = [e.offsetX, e.offsetY];
     };
 
     // Draw when mouse moves (and isDrawing is true)
-    currCanvas?.addEventListener("mousemove", handleDraw);
+    currCanvas.addEventListener("mousemove", handleDraw);
 
     // Stop drawing when mouse is released
-    currCanvas?.addEventListener("mouseup", mouseUpHandler);
+    currCanvas.addEventListener("mouseup", mouseUpOutHandler);
 
     // Stop drawing when mouse moves out of canvas
-    currCanvas?.addEventListener("mouseout", mouseOutHandler);
-    currCanvas?.addEventListener("mousedown", mouseDownHandler);
+    currCanvas.addEventListener("mouseout", mouseUpOutHandler);
+    currCanvas.addEventListener("mousedown", mouseDownHandler);
 
     // Remove event listeners
     return () => {
-      currCanvas?.removeEventListener("mousemove", handleDraw);
-      currCanvas?.removeEventListener("mouseup", mouseUpHandler);
-      currCanvas?.removeEventListener("mouseout", mouseOutHandler);
-      currCanvas?.removeEventListener("mousedown", mouseDownHandler);
+      currCanvas.removeEventListener("mousemove", handleDraw);
+      currCanvas.removeEventListener("mouseup", mouseUpOutHandler);
+      currCanvas.removeEventListener("mouseout", mouseUpOutHandler);
+      currCanvas.removeEventListener("mousedown", mouseDownHandler);
     };
-  }, []);
+  }, [drawLine]);
 
   return { canvasRef, clear };
 };
